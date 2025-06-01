@@ -333,11 +333,9 @@ exports.upload = async (req, res) => {
     const worksheet = workbook.getWorksheet("Sheet1");
 
     if (!worksheet) {
-      return res
-        .status(400)
-        .json({
-          error: "Format file tidak sesuai atau Sheet1 tidak ditemukan!",
-        });
+      return res.status(400).json({
+        error: "Format file tidak sesuai atau Sheet1 tidak ditemukan!",
+      });
     }
 
     // **Ambil data dari kolom Nama Siswa dan Kelas**
@@ -346,14 +344,8 @@ exports.upload = async (req, res) => {
     worksheet.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return; // **Lewati header**
 
-      const nama =
-        typeof row.getCell(1).value === "string"
-          ? row.getCell(1).value.trim()
-          : null;
-      const kelas =
-        typeof row.getCell(2).value === "string"
-          ? row.getCell(2).value.trim()
-          : null;
+      const nama = row.getCell(1).value?.toString().trim();
+      const kelas = row.getCell(2).value?.toString().trim();
 
       if (nama && kelas) {
         const uniqueKey = `${nama}-${kelas}`; // **Buat kunci unik untuk kombinasi Nama-Kelas**
