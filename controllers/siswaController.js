@@ -322,37 +322,50 @@ exports.downloadTemplate = async (req, res) => {
 
 exports.upload = async (req, res) => {
   try {
-    // Periksa apakah ada file yang diunggah
+    // **Periksa apakah ada file yang diunggah**
     if (!req.file) {
       return res.status(400).json({ error: "Harap unggah file spreadsheet." });
     }
 
-    // Buka file Excel yang diunggah
+    // **Buka file Excel**
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.readFile(`${req.file.path}`);
+    await workbook.xlsx.readFile(req.file.path);
     const worksheet = workbook.getWorksheet("Sheet1");
 
-    await workbook.xlsx.readFile(req.file.path);
-
     if (!worksheet) {
-      return res.status(400).json({ error: "Format file tidak sesuai!" });
+      return res
+        .status(400)
+        .json({
+          error: "Format file tidak sesuai atau Sheet1 tidak ditemukan!",
+        });
     }
 
-    // Ambil data dari kolom Nama Siswa dan Kelas
-    const siswaData = [];
+    // **Ambil data dari kolom Nama Siswa dan Kelas**
     const existingEntries = new Set(); // Menyimpan data unik dari file
 
     worksheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return; // Lewati header
+      if (rowNumber === 1) return; // **Lewati header**
 
-      const nama = row.getCell(1).value?.trim(); // Hapus spasi berlebih
-      const kelas = row.getCell(2).value?.trim();
+      const nama =
+        typeof row.getCell(1).value === "string"
+          ? row.getCell(1).value.trim()
+          : null;
+      const kelas =
+        typeof row.getCell(2).value === "string"
+          ? row.getCell(2).value.trim()
+          : null;
 
       if (nama && kelas) {
-        const uniqueKey = `${nama}-${kelas}`; // Buat kunci unik untuk kombinasi Nama-Kelas
+        const uniqueKey = `${nama}-${kelas}`; // **Buat kunci unik untuk kombinasi Nama-Kelas**
         existingEntries.add(uniqueKey);
       }
     });
+
+    if (existingEntries.size === 0) {
+      return res
+        .status(400)
+        .json({ error: "File tidak mengandung data yang valid!" });
+    }
 
     // **Cek data yang sudah ada di database**
     const existingSiswaDB = await Siswa.find({
@@ -362,7 +375,7 @@ exports.upload = async (req, res) => {
       }),
     });
 
-    // Konversi data database ke Set untuk pengecekan cepat
+    // **Konversi data database ke Set untuk pengecekan cepat**
     const existingSiswaSet = new Set(
       existingSiswaDB.map((s) => `${s.nama}-${s.kelas}`)
     );
@@ -378,18 +391,20 @@ exports.upload = async (req, res) => {
     // **Simpan hanya data yang belum ada**
     if (newSiswaData.length > 0) {
       const createdSiswa = await Siswa.insertMany(newSiswaData);
-      res.status(200).json({
+      return res.status(200).json({
         message: "Data siswa berhasil diunggah!",
         data: createdSiswa,
       });
     } else {
-      res
+      return res
         .status(400)
         .json({ error: "Semua data sudah ada, tidak ada yang ditambahkan!" });
     }
   } catch (error) {
     console.error("Gagal membaca spreadsheet:", error);
-    res.status(500).json({ error: "Terjadi kesalahan saat memproses file." });
+    return res
+      .status(500)
+      .json({ error: "Terjadi kesalahan saat memproses file." });
   }
 };
 
