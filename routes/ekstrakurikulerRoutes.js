@@ -36,5 +36,9 @@ router.get(
 
 // Route untuk mendapatkan semua data ekstrakurikuler
 router.get("/", ekstrakurikulerController.getAllEkstrakurikuler);
+router.get(
+  `/:idEkstrakurikuler/export-daftar-siswa`,
+  ekstrakurikulerController.getExportDaftarSiswa
+);
 
 module.exports = router;

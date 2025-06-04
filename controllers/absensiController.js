@@ -5,11 +5,14 @@ const mongoose = require("mongoose");
 const moment = require("moment");
 const ExcelJS = require("exceljs");
 const path = require("path");
+const momentTimezone = require("moment-timezone");
 
 // Menambahkan data absensi baru
 exports.createAbsensiBySiswaAndEkstrakurikuler = async (req, res) => {
   try {
     const { idSiswa, idEkstrakurikuler } = req.params;
+
+    console.log(idSiswa, idEkstrakurikuler);
 
     // Cari siswa berdasarkan ID
     const siswa = await Siswa.findById(idSiswa);
@@ -30,7 +33,7 @@ exports.createAbsensiBySiswaAndEkstrakurikuler = async (req, res) => {
       nama_siswa: siswa.nama,
       id_siswa: siswa._id,
       id_ekstrakurikuler: ekstrakurikuler._id,
-      waktu_scan: Date.now(),
+      waktu_scan: momentTimezone().tz("Asia/Jakarta").toDate(), // Konversi ke Date object dengan zona WIB
     });
 
     await newAbsensi.save();
@@ -168,7 +171,7 @@ exports.getGroupedAbsensiByEkstrakurikuler = async (req, res) => {
     // Ambil semua absensi berdasarkan idEkstrakurikuler
     const absensi = await Absensi.find({
       id_ekstrakurikuler: idEkstrakurikuler,
-    }).sort({ waktu_scan: 1 });
+    }).sort({ waktu_scan: -1 }); // ✅ Sortir berdasarkan waktu_scan terbaru terlebih dahulu
 
     if (!absensi.length) {
       return res.status(404).json({
@@ -176,7 +179,7 @@ exports.getGroupedAbsensiByEkstrakurikuler = async (req, res) => {
       });
     }
 
-    // Grouping data secara manual
+    // Grouping data secara manual, lalu sortir dari tanggal terbesar ke terkecil
     const groupedAbsensi = Object.values(
       absensi.reduce((acc, item) => {
         const dateKey = item.waktu_scan.toISOString().split("T")[0]; // Ambil tanggal dalam format YYYY-MM-DD
@@ -186,7 +189,7 @@ exports.getGroupedAbsensiByEkstrakurikuler = async (req, res) => {
         acc[dateKey].data.push(item);
         return acc;
       }, {})
-    );
+    ).sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal)); // ✅ Sortir hasil grouping dari tanggal terbaru ke yang lama
 
     res.json(groupedAbsensi);
   } catch (err) {
@@ -317,10 +320,11 @@ exports.selectHadir = async (req, res) => {
         .json({ message: "id_ekstrakurikuler dan id_siswa[] wajib diisi." });
     }
 
-    const waktu = tanggal ? new Date(tanggal) : Date.now();
+    const waktu = momentTimezone().tz("Asia/Jakarta").toDate();
+
     const insertData = await Promise.all(
       listIdsiswa.map(async (siswaId) => {
-        const siswa = await Siswa.findById(siswaId).sort({ nama: 1 }); // **Menambahkan pengurutan**
+        const siswa = await Siswa.findById(siswaId);
         return {
           id_siswa: new mongoose.Types.ObjectId(siswaId),
           nama_siswa: siswa ? siswa.nama : "Tidak ditemukan",

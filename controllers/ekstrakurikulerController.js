@@ -1,5 +1,7 @@
 const Ekstrakurikuler = require("../models/Ekstrakurikuler");
 const Siswa = require("../models/Siswa");
+const ExcelJS = require("exceljs");
+const path = require("path");
 
 // Menambahkan ekstrakurikuler baru
 exports.createEkstrakurikuler = async (req, res) => {
@@ -149,5 +151,67 @@ exports.findEkstrakurikulerByGuruId = async (req, res) => {
   } catch (err) {
     console.log(err);
     res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getExportDaftarSiswa = async (req, res) => {
+  try {
+    const { idEkstrakurikuler } = req.params;
+
+    // Cari ekstrakurikuler berdasarkan ID
+    const ekstrakurikuler = await Ekstrakurikuler.findById(idEkstrakurikuler);
+    if (!ekstrakurikuler) {
+      return res
+        .status(404)
+        .json({ message: "Ekstrakurikuler tidak ditemukan" });
+    }
+
+    // Ambil daftar siswa yang terdaftar dalam ekstrakurikuler ini
+    const siswaList = await Siswa.find({
+      data_ekstrakurikuler: { $in: [idEkstrakurikuler] },
+    }).sort({ nama: 1 }); // **Menambahkan pengurutan alfabetis di sini**
+
+    if (!siswaList.length) {
+      return res.status(404).json({
+        message: "Tidak ada siswa terdaftar dalam ekstrakurikuler ini.",
+      });
+    }
+
+    // **Buat Workbook & Worksheet**
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Daftar Siswa");
+
+    // **Tambahkan Header Termerge**
+    worksheet.mergeCells("A1:B1"); // Merge kolom untuk judul
+    worksheet.getCell(
+      "A1"
+    ).value = `Daftar Siswa Ekstrakurikuler ${ekstrakurikuler.nama}`;
+    worksheet.getCell("A1").font = { bold: true, size: 14 };
+    worksheet.getCell("A1").alignment = { horizontal: "center" };
+
+    // **Tambahkan Header Kolom Nama & Kelas**
+    worksheet.getRow(2).values = ["Nama Siswa", "Kelas"];
+    worksheet.getRow(2).font = { bold: true };
+    worksheet.getRow(2).alignment = { horizontal: "center" };
+
+    // **Tambahkan Data Siswa**
+    siswaList.forEach((siswa, index) => {
+      worksheet.addRow([siswa.nama, siswa.kelas]);
+    });
+
+    // **Simpan file ke disk sebelum dikirim ke frontend**
+    const filePath = path.join(__dirname, "DaftarSiswa.xlsx");
+    await workbook.xlsx.writeFile(filePath);
+
+    // **Kirim file ke frontend**
+    res.download(
+      filePath,
+      `Daftar_Siswa_Ekstrakurikuler_${ekstrakurikuler.nama}.xlsx`
+    );
+  } catch (error) {
+    console.error("Gagal membuat file Excel:", error);
+    res
+      .status(500)
+      .json({ error: "Terjadi kesalahan saat mengekspor data siswa." });
   }
 };
