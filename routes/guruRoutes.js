@@ -23,6 +23,8 @@ router.get("/", guruController.getAllGuru);
 
 router.get("/qr/:id", guruController.getGuruWithBarcode);
 
+router.get("/:id", guruController.getGuruById);
+
 router.post("/login/qr", guruController.getUserById);
 
 module.exports = router;

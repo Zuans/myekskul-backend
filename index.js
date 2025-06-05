@@ -6,6 +6,7 @@ const guruRoutes = require("./routes/guruRoutes");
 const siswaRoutes = require("./routes/siswaRoutes");
 const ekstrakurikulerRoutes = require("./routes/ekstrakurikulerRoutes");
 const absensiRoutes = require("./routes/absensiRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 require("dotenv").config();
 
 app.use(express.json());
@@ -21,6 +22,7 @@ app.use("/api/guru", guruRoutes);
 app.use("/api/ekstrakurikuler", ekstrakurikulerRoutes);
 app.use("/api/absensi", absensiRoutes);
 app.use("/api/siswa", siswaRoutes);
+app.use("/api/admin", adminRoutes);
 
 const PORT = 7878;
 app.listen(PORT, () => {

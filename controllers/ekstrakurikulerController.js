@@ -1,4 +1,5 @@
 const Ekstrakurikuler = require("../models/Ekstrakurikuler");
+const Guru = require("../models/Guru");
 const Siswa = require("../models/Siswa");
 const ExcelJS = require("exceljs");
 const path = require("path");
@@ -108,6 +109,7 @@ exports.getAllEkstrakurikuler = async (req, res) => {
 
 exports.findEkstrakurikulerById = async (req, res) => {
   try {
+    // Ambil data ekstrakurikuler berdasarkan ID
     const ekstrakurikuler = await Ekstrakurikuler.findById(req.params.id);
 
     if (!ekstrakurikuler) {
@@ -116,7 +118,12 @@ exports.findEkstrakurikulerById = async (req, res) => {
         .json({ message: "Ekstrakurikuler tidak ditemukan" });
     }
 
-    res.json(ekstrakurikuler);
+    // Ambil data guru berdasarkan id_guru
+    const guru = await Guru.findById(ekstrakurikuler.id_guru);
+    const namaGuru = guru ? guru.nama : "Guru tidak ditemukan";
+
+    // Gabungkan data guru ke dalam respons
+    res.json({ ...ekstrakurikuler.toObject(), nama_guru: namaGuru });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
