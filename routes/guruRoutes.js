@@ -20,11 +20,20 @@ router.get("/jadwalNanti/:idGuru", guruController.findJadwalNanti);
 
 // Route untuk mendapatkan semua data guru
 router.get("/", guruController.getAllGuru);
+router.get("/getApprove", guruController.getApprovedGuru);
+
+router.get("/getRequestApprove", guruController.getRequestApprove);
 
 router.get("/qr/:id", guruController.getGuruWithBarcode);
 
 router.get("/:id", guruController.getGuruById);
 
 router.post("/login/qr", guruController.getUserById);
+
+// Route untuk **approve akun guru** (ubah `isActive` menjadi `true`)
+router.put("/approve/:id", guruController.approveGuru);
+
+// Route untuk **reject akun guru** (hapus akun atau beri status khusus)
+router.delete("/reject/:id", guruController.rejectGuru);
 
 module.exports = router;

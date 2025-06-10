@@ -28,12 +28,31 @@ exports.createAbsensiBySiswaAndEkstrakurikuler = async (req, res) => {
         .json({ message: "Ekstrakurikuler tidak ditemukan" });
     }
 
+    // Dapatkan tanggal hari ini dalam zona WIB (Asia/Jakarta)
+    const today = moment().tz("Asia/Jakarta").format("YYYY-MM-DD");
+
+    // Cek apakah siswa sudah melakukan absensi di ekstrakurikuler ini pada hari yang sama
+    const existingAbsensi = await Absensi.findOne({
+      id_siswa: idSiswa,
+      id_ekstrakurikuler: idEkstrakurikuler,
+      waktu_scan: {
+        $gte: moment(today).tz("Asia/Jakarta").startOf("day").toDate(),
+        $lte: moment(today).tz("Asia/Jakarta").endOf("day").toDate(),
+      },
+    });
+
+    if (existingAbsensi) {
+      return res.status(400).json({
+        message: `Siswa ${siswa.nama} sudah melakukan absensi hari ini untuk ${ekstrakurikuler.nama}.`,
+      });
+    }
+
     // Simpan data absensi baru
     const newAbsensi = new Absensi({
       nama_siswa: siswa.nama,
       id_siswa: siswa._id,
       id_ekstrakurikuler: ekstrakurikuler._id,
-      waktu_scan: momentTimezone().tz("Asia/Jakarta").toDate(), // Konversi ke Date object dengan zona WIB
+      waktu_scan: moment().tz("Asia/Jakarta").toDate(), // Konversi ke Date object dengan zona WIB
     });
 
     await newAbsensi.save();
@@ -236,7 +255,11 @@ exports.getAbsensiStatusByEkstrakurikuler = async (req, res) => {
           kelas: siswa.kelas, // Tambahkan data kelas siswa
           id_ekstrakurikuler: idEkstrakurikuler,
           status: absensi ? "Hadir" : "Absen",
-          waktu_scan: absensi ? absensi.waktu_scan : null,
+          waktu_scan: absensi
+            ? momentTimezone(absensi.waktu_scan)
+                .tz("Asia/Jakarta")
+                .format("DD/MM-HH:mm")
+            : null,
         };
       })
     );
@@ -311,6 +334,8 @@ exports.findAbsensiBySemester = async (req, res) => {
 exports.selectHadir = async (req, res) => {
   const { tanggal, idEkstrakurikuler } = req.params;
 
+  console.log(tanggal);
+
   try {
     const { selectedData: listIdsiswa } = req.body;
 
@@ -322,24 +347,39 @@ exports.selectHadir = async (req, res) => {
 
     const waktu = momentTimezone().tz("Asia/Jakarta").toDate();
 
+    // Dapatkan daftar siswa yang sudah absen
+    const siswaSudahAbsen = await Absensi.find({
+      id_ekstrakurikuler: idEkstrakurikuler,
+      waktu_scan: new Date(tanggal), // Pastikan sesuai format saat menyimpan
+      id_siswa: { $in: listIdsiswa },
+    }).distinct("id_siswa");
+
+    console.log(siswaSudahAbsen);
+
+    // Filter siswa yang belum absen
     const insertData = await Promise.all(
-      listIdsiswa.map(async (siswaId) => {
-        const siswa = await Siswa.findById(siswaId);
-        return {
-          id_siswa: new mongoose.Types.ObjectId(siswaId),
-          nama_siswa: siswa ? siswa.nama : "Tidak ditemukan",
-          id_ekstrakurikuler: new mongoose.Types.ObjectId(idEkstrakurikuler),
-          waktu_scan: waktu,
-        };
-      })
+      listIdsiswa
+        .filter((siswaId) => !siswaSudahAbsen.includes(siswaId))
+        .map(async (siswaId) => {
+          const siswa = await Siswa.findById(siswaId);
+          return {
+            id_siswa: new mongoose.Types.ObjectId(siswaId),
+            nama_siswa: siswa ? siswa.nama : "Tidak ditemukan",
+            id_ekstrakurikuler: new mongoose.Types.ObjectId(idEkstrakurikuler),
+            waktu_scan: waktu,
+          };
+        })
     );
 
-    const result = await Absensi.insertMany(insertData);
-
-    res.status(201).json({
-      message: "Absensi berhasil ditambahkan.",
-      data: result,
-    });
+    if (insertData.length > 0) {
+      const result = await Absensi.insertMany(insertData);
+      res.status(201).json({
+        message: "Absensi berhasil ditambahkan.",
+        data: result,
+      });
+    } else {
+      res.status(200).json({ message: "Semua siswa sudah absen." });
+    }
   } catch (error) {
     console.error(error);
     res

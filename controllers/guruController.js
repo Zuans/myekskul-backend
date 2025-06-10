@@ -67,31 +67,54 @@ exports.getAllGuru = async (req, res) => {
   }
 };
 
+exports.getApprovedGuru = async (req, res) => {
+  try {
+    // Mengambil hanya guru yang aktif (isActive: true)
+    const guru = await Guru.find({ isActive: true });
+
+    // Jika data ditemukan, kembalikan dalam bentuk JSON
+    res.status(200).json(guru);
+  } catch (error) {
+    // Menangani kesalahan jika query gagal
+    res
+      .status(500)
+      .json({ message: "Gagal mendapatkan data guru", error: error.message });
+  }
+};
+
 exports.loginGuru = async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    if (username == "adminsuper" && password == "abadi41") {
+    // **Login untuk Admin (Langsung tanpa cek isActive)**
+    if (username === "adminsuper" && password === "abadi41") {
       return res.status(200).json({
         _id: "-",
         nama: "admin",
         username: "adminsuper",
         role: "admin", // Tambahkan role
+        isActive: true,
       });
     }
 
-    // Cek apakah username ada di database
+    // **Cek apakah username ada di database**
     const guru = await Guru.findOne({ username });
     if (!guru) {
       return res.status(401).json({ error: "Username tidak ditemukan!" });
     }
+    // **Cek apakah akun guru sudah aktif (hanya untuk guru, bukan admin)**
+    if (!guru.isActive) {
+      return res.status(403).json({
+        error: "Akun belum aktif, silakan tunggu aktivasi dari admin!",
+      });
+    }
 
-    // Verifikasi password langsung (tanpa hashing)
+    // **Verifikasi password langsung (tanpa hashing)**
     if (guru.password !== password) {
       return res.status(401).json({ error: "Password salah!" });
     }
 
-    // Kirim data guru dengan role sebagai respons
+    // **Kirim data guru dengan role sebagai respons**
     res.status(200).json({
       _id: guru._id,
       nama: guru.nama,
@@ -230,5 +253,58 @@ exports.getGuruById = async (req, res) => {
     res
       .status(500)
       .json({ message: "Terjadi kesalahan pada server", error: error.message });
+  }
+};
+
+exports.approveGuru = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updatedGuru = await Guru.findByIdAndUpdate(
+      id,
+      { isActive: true },
+      { new: true }
+    );
+
+    if (!updatedGuru) {
+      return res.status(404).json({ message: "Guru tidak ditemukan" });
+    }
+
+    res.json({ message: "Akun guru berhasil di-approve", guru: updatedGuru });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getRequestApprove = async (req, res) => {
+  try {
+    // Mengambil semua guru yang belum diapprove (isActive: false)
+    const pendingGuru = await Guru.find({ isActive: false });
+
+    // Jika tidak ada data yang ditemukan, kirim pesan kosong
+    if (!pendingGuru.length) {
+      return res
+        .status(404)
+        .json({ message: "Tidak ada akun guru yang perlu diapprove" });
+    }
+
+    res.status(200).json(pendingGuru);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Fungsi untuk reject akun guru
+exports.rejectGuru = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deletedGuru = await Guru.findByIdAndDelete(id);
+
+    if (!deletedGuru) {
+      return res.status(404).json({ message: "Guru tidak ditemukan" });
+    }
+
+    res.json({ message: "Akun guru telah ditolak dan dihapus" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
