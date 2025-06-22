@@ -3,6 +3,7 @@ const Guru = require("../models/Guru");
 const Siswa = require("../models/Siswa");
 const ExcelJS = require("exceljs");
 const path = require("path");
+const Absensi = require("../models/Absensi");
 
 // Menambahkan ekstrakurikuler baru
 exports.createEkstrakurikuler = async (req, res) => {
@@ -34,16 +35,22 @@ exports.updateEkstrakurikuler = async (req, res) => {
 };
 
 // Menghapus ekstrakurikuler berdasarkan ID
+
 exports.deleteEkstrakurikuler = async (req, res) => {
   try {
     const ekstrakurikuler = await Ekstrakurikuler.findByIdAndDelete(
       req.params.id
     );
-    if (!ekstrakurikuler)
+    if (!ekstrakurikuler) {
       return res
         .status(404)
         .json({ message: "Ekstrakurikuler tidak ditemukan" });
-    res.json({ message: "Ekstrakurikuler berhasil dihapus" });
+    }
+
+    // Hapus semua absensi dengan id_ekstrakurikuler terkait
+    await Absensi.deleteMany({ id_ekstrakurikuler: req.params.id });
+
+    res.json({ message: "Ekstrakurikuler dan data absensi berhasil dihapus" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
