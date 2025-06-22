@@ -24,7 +24,35 @@ app.use("/api/absensi", absensiRoutes);
 app.use("/api/siswa", siswaRoutes);
 app.use("/api/admin", adminRoutes);
 
-const PORT = 7878;
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
-});
+const os = require("os");
+
+// Fungsi untuk mendapatkan IP lokal untuk pengujian LAN
+const getLocalIP = () => {
+  const interfaces = os.networkInterfaces();
+  for (const iface of Object.values(interfaces)) {
+    for (const i of iface) {
+      if (i.family === "IPv4" && !i.internal) {
+        return i.address;
+      }
+    }
+  }
+  return "localhost";
+};
+
+const ENV = process.env.NODE_ENV || "development";
+const PORT = process.env.PORT || 7878;
+
+if (ENV === "production") {
+  app.listen(PORT, () => {
+    console.log(`🚀 Production Mode`);
+    console.log(`Server running at http://localhost:${PORT}`);
+  });
+} else {
+  const ip = getLocalIP();
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`🛠 Development Mode`);
+    console.log(`Server running at:`);
+    console.log(`- http://localhost:${PORT}`);
+    console.log(`- http://${ip}:${PORT} (LAN access)`);
+  });
+}
